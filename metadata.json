@@ -1,0 +1,5 @@
+{
+  "name": "LibrisGate: Library Management System",
+  "description": "A streamlined local library gate entry management system featuring automated ID scanning, real-time tracking, usage analytics, and administrative reporting.",
+  "requestFramePermissions": []
+}

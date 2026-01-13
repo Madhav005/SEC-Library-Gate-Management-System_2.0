@@ -1,0 +1,10 @@
+com\library\repository\StudentRepository.class
+com\library\controller\LibraryController.class
+com\library\controller\SpaController.class
+com\library\repository\StaffRepository.class
+UserProfile.class
+com\library\LibraryApplication.class
+com\library\repository\LogEntryRepository.class
+com\library\entity\Student.class
+com\library\entity\Staff.class
+com\library\entity\LogEntry.class
