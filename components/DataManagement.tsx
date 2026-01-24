@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DBService } from '../services/dbService';
 import { UserProfile } from '../types';
 
-type SubTab = 'RECORDS' | 'MANUAL' | 'BULK' | 'BULK_DELETE';
+type SubTab = 'RECORDS' | 'MANUAL_ADD' | 'MANUAL_DELETE' | 'BULK_ADD' | 'BULK_DELETE';
 
 const DataManagement: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('RECORDS');
@@ -103,7 +103,7 @@ const DataManagement: React.FC = () => {
   const handleEdit = (user: Omit<UserProfile, 'userType'>) => {
     setFormData({ regNo: user.regNo, name: user.name, department: user.department });
     setEditingUser(user.regNo);
-    setActiveSubTab('MANUAL');
+    setActiveSubTab('MANUAL_ADD');
   };
 
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -193,6 +193,28 @@ const DataManagement: React.FC = () => {
     reader.readAsText(file);
   };
 
+  // --- REFACTOR: SINGLE USER DELETE ---
+  const handleSingleDelete = async (regNo: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${regNo} from the master database?`)) return;
+
+    setIsLoading(true);
+    try {
+      const result = await DBService.bulkDeleteMasterUsers([regNo]);
+      if (result.deletedCount > 0) {
+        setStatus({ type: 'success', msg: `Deleted ${regNo} successfully.` });
+        await refreshList();
+      } else {
+        setStatus({ type: 'error', msg: 'Could not delete user. Check backend logs.' });
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', msg: 'Deletion failed.' });
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setStatus({ type: null, msg: '' }), 3000);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 relative">
 
@@ -235,7 +257,7 @@ const DataManagement: React.FC = () => {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {['RECORDS', 'MANUAL', 'BULK', 'BULK_DELETE'].map(tab => (
+          {['RECORDS', 'MANUAL_ADD', 'MANUAL_DELETE', 'BULK_ADD', 'BULK_DELETE'].map(tab => (
             <button
               key={tab}
               disabled={isLoading}
@@ -359,18 +381,26 @@ const DataManagement: React.FC = () => {
           </div>
         )}
 
-        {activeSubTab === 'MANUAL' && (
-          <form onSubmit={handleManualSubmit} className="max-w-md space-y-4">
+        {/* --- MANUAL ADD TAB --- */}
+        {activeSubTab === 'MANUAL_ADD' && (
+          <form onSubmit={handleManualSubmit} className="max-w-md space-y-4 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-widest mb-4">
-              {editingUser ? 'Update Master Record' : 'Manual Entry to MySQL'}
+              {editingUser ? 'Update Master Record' : 'Add New User to MySQL'}
             </h3>
+
+            <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 mb-4">
+              <p className="text-[10px] text-blue-800 font-bold uppercase tracking-wide">
+                {editingUser ? 'Editing Mode Active' : 'New Entry Mode'} // Adds a single user to the master database.
+              </p>
+            </div>
+
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Registration Number</label>
-              <input type="text" value={formData.regNo} disabled={!!editingUser} onChange={e => setFormData({ ...formData, regNo: e.target.value })} className={`w-full border-2 border-slate-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-[#1e3a8a] outline-none ${editingUser ? 'bg-slate-50' : ''}`} />
+              <input type="text" value={formData.regNo} disabled={!!editingUser} onChange={e => setFormData({ ...formData, regNo: e.target.value })} className={`w-full border-2 border-slate-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-[#1e3a8a] outline-none ${editingUser ? 'bg-slate-50' : ''}`} placeholder="e.g. 21212101 or S1234 (Staff)" />
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Full Name</label>
-              <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border-2 border-slate-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-[#1e3a8a] outline-none" />
+              <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border-2 border-slate-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-[#1e3a8a] outline-none" placeholder="First Name Last Name" />
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Department</label>
@@ -392,7 +422,67 @@ const DataManagement: React.FC = () => {
           </form>
         )}
 
-        {activeSubTab === 'BULK' && (
+        {/* --- MANUAL DELETE TAB --- */}
+        {activeSubTab === 'MANUAL_DELETE' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <div className="max-w-lg">
+              <h3 className="text-sm font-black text-red-600 uppercase tracking-widest mb-4">
+                Search & Delete User
+              </h3>
+              <p className="text-xs text-slate-500 mb-4">Search by ID, Name, or Department to find the user you wish to delete.</p>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search user to delete..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border-2 border-red-100 rounded-xl text-sm font-bold text-slate-900 focus:border-red-500 focus:ring-4 focus:ring-red-50 outline-none shadow-sm placeholder:text-red-200"
+                />
+                <svg className="w-5 h-5 text-red-300 absolute left-3 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+              </div>
+            </div>
+
+            {/* Results List for Deletion */}
+            {searchQuery && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                {paginatedList.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">No matching users found</div>
+                ) : (
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead className="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest">
+                      <tr>
+                        <th className="px-6 py-3">Reg No</th>
+                        <th className="px-6 py-3">Name</th>
+                        <th className="px-6 py-3">Department</th>
+                        <th className="px-6 py-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {paginatedList.map(user => (
+                        <tr key={user.regNo} className="hover:bg-red-50/50 transition-colors">
+                          <td className="px-6 py-3 font-mono font-bold text-slate-600">{user.regNo}</td>
+                          <td className="px-6 py-3 font-bold text-slate-800">{user.name}</td>
+                          <td className="px-6 py-3 text-slate-500 text-xs">{user.department}</td>
+                          <td className="px-6 py-3 text-right">
+                            <button
+                              onClick={() => handleSingleDelete(user.regNo)}
+                              className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all shadow-sm"
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSubTab === 'BULK_ADD' && (
           <div className="space-y-6">
             <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-widest">Batch Enrollment</h3>
             <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-white hover:border-[#1e3a8a] transition-all group">

@@ -15,6 +15,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
     userType?: string;
     type: 'success' | 'info' | 'error' | null
   }>({ msg: '', type: null });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -26,7 +27,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
   // Only steal focus if it is lost (document.body), allowing users to click "Manual Checkout" tabs.
   useEffect(() => {
     const checkFocus = () => {
-      if (document.activeElement === document.body) {
+      if (document.activeElement === document.body && !inputRef.current?.disabled) {
         inputRef.current?.focus();
       }
     };
@@ -77,8 +78,19 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing) return;
+
     const regNo = inputValue.trim();
     if (!regNo) return;
+
+    setIsProcessing(true);
+
+    // Cooldown timer to re-enable multiple inputs
+    setTimeout(() => {
+      setIsProcessing(false);
+      // Force focus back after cooldown
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }, 1000);
 
     setInputValue('');
     setTimedStatus({ msg: 'Checking records...', type: 'info' });
@@ -153,9 +165,13 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Scan Student or Staff ID Card..."
-          className="w-full text-2xl font-mono p-5 border-2 border-slate-100 rounded-2xl bg-slate-50 group-hover:bg-white focus:bg-white focus:border-[#1e3a8a] focus:ring-8 focus:ring-blue-50 outline-none transition-all pr-6 shadow-inner text-slate-900 placeholder:text-slate-200"
-          autoFocus
+          placeholder={isProcessing ? "Processing..." : "Scan Student or Staff ID Card..."}
+          className={`w-full text-2xl font-mono p-5 border-2 rounded-2xl outline-none transition-all pr-6 shadow-inner text-slate-900 placeholder:text-slate-200 ${isProcessing
+            ? 'bg-slate-100 border-slate-200 cursor-not-allowed text-slate-400'
+            : 'bg-slate-50 border-slate-100 group-hover:bg-white focus:bg-white focus:border-[#1e3a8a] focus:ring-8 focus:ring-blue-50'
+            }`}
+          autoFocus={!isProcessing}
+          disabled={isProcessing}
           autoComplete="off"
         />
       </form>

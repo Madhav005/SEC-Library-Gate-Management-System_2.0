@@ -172,13 +172,26 @@ const App: React.FC = () => {
               {activeTab === AppTab.DASHBOARD && (
                 <div className="h-full flex flex-col p-6 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
 
-                  {/* Centered Logo */}
-                  <div className="flex justify-center mb-6 shrink-0">
+                  {/* 1. Centered Logo Above Banner */}
+                  <div className="flex justify-center mb-2 shrink-0 px-2">
                     <img
                       src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png"
                       alt="Saveetha Engineering College Logo"
                       className="h-28 w-auto object-contain"
                     />
+                  </div>
+
+                  {/* 2. Hero Banner (Compact) */}
+                  <div className="mb-4 rounded-xl bg-gradient-to-r from-[#113583] to-[#2563eb] px-8 py-5 text-white shadow-lg shrink-0 flex flex-col justify-center relative overflow-hidden">
+
+                    {/* Glossy overlay effect */}
+                    <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-white/10 to-transparent skew-x-12 transform origin-bottom-right translate-x-10"></div>
+
+                    <div className="relative z-10 flex flex-col justify-center">
+                      <h3 className="text-xs font-bold text-[#fbbf24] uppercase tracking-widest mb-1">Welcome To</h3>
+                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mb-1 leading-none">Saveetha Engineering College</h1>
+                      <p className="text-blue-50 font-medium text-sm tracking-wide opacity-90">Central Library Gate Entry Management System</p>
+                    </div>
                   </div>
 
 
