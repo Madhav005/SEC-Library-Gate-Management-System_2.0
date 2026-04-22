@@ -4,6 +4,7 @@ import com.library.entity.*;
 import com.library.repository.*;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -172,6 +173,33 @@ public class LibraryController {
                    e.setCheckOutTime(LocalDateTime.now());
                    logRepo.save(e);
                });
+    }
+
+    @jakarta.transaction.Transactional
+    @DeleteMapping("/log_entry/delete/{regNo}")
+    public Map<String, Boolean> deleteLogEntriesByRegNo(@PathVariable String regNo) {
+        System.out.println("DELETE REQUEST: Deleting logs for RegNo: " + regNo);
+        logRepo.deleteByRegNo(regNo);
+        System.out.println("DELETE SUCCESS: Logs deleted for " + regNo);
+        return Map.of("success", true);
+    }
+
+    @jakarta.transaction.Transactional
+    @DeleteMapping("/log_entry/delete-all-unknown")
+    public Map<String, Boolean> deleteAllUnknowns() {
+        System.out.println("DELETE ALL UNKNOWNS REQUEST");
+        logRepo.deleteAllUnknowns();
+        return Map.of("success", true);
+    }
+
+    @jakarta.transaction.Transactional
+    @DeleteMapping("/log_entry/delete-by-date")
+    public Map<String, Integer> deleteLogsByDate(@RequestParam("start") String start, @RequestParam("end") String end) {
+        System.out.println("DELETE LOGS BY DATE REQUEST: " + start + " TO " + end);
+        LocalDateTime fromDate = LocalDate.parse(start).atStartOfDay();
+        LocalDateTime toDate = LocalDate.parse(end).atTime(23, 59, 59);
+        int deletedCount = logRepo.deleteByDateRange(fromDate, toDate);
+        return Map.of("deletedCount", deletedCount);
     }
 
     @GetMapping("/ping")

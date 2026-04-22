@@ -23,6 +23,9 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
   // FIX 1: Use a Ref to track the timeout so we can clear it if a new scan happens
   const statusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // FIX 4: Prevent duplicate scans from same user within short window (3 seconds)
+  const lastScannedRef = useRef<{ regNo: string, time: number } | null>(null);
+
   // FIX 2: Better Focus Logic
   // Only steal focus if it is lost (document.body), allowing users to click "Manual Checkout" tabs.
   useEffect(() => {
@@ -31,7 +34,7 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
         inputRef.current?.focus();
       }
     };
-    const interval = setInterval(checkFocus, 1000);
+    const interval = setInterval(checkFocus, 500);
     return () => clearInterval(interval);
   }, []);
 
@@ -65,12 +68,21 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
       // Cancel any ongoing speech to prevent queue buildup
       window.speechSynthesis.cancel();
 
-      const text = type === 'IN' ? 'Checked in' : 'Checked out';
+      const text = type === 'IN' ? 'Checked In' : 'Checked Out'; // Updated audio text
       const utterance = new SpeechSynthesisUtterance(text);
 
-      // Optional: Adjust voice/speed/pitch
-      utterance.rate = 1.1;
+      // AUDIO OPTIMIZATIONS
+      utterance.volume = 1.0; // Max volume
+      utterance.rate = 0.9;   // Slightly slower for clarity
       utterance.pitch = 1.0;
+
+      // Select Indian Voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const indianVoice = voices.find(v => v.lang.includes('en-IN') || v.name.includes('India'));
+
+      if (indianVoice) {
+        utterance.voice = indianVoice;
+      }
 
       window.speechSynthesis.speak(utterance);
     }
@@ -83,14 +95,33 @@ const ScannerInput: React.FC<ScannerInputProps> = ({ onEntryProcessed }) => {
     const regNo = inputValue.trim();
     if (!regNo) return;
 
+    // DUPLICATE CHECK: 5-Second Throttle for the SAME user
+    // This prevents "slow swipe" double scans but allows the next person to scan immediately.
+    if (lastScannedRef.current &&
+      lastScannedRef.current.regNo === regNo &&
+      (Date.now() - lastScannedRef.current.time < 5000)) {
+
+      const remaining = Math.ceil((5000 - (Date.now() - lastScannedRef.current.time)) / 1000);
+      setTimedStatus({
+        msg: `Please wait ${remaining}s`,
+        details: 'Duplicate scan prevention active',
+        type: 'error'
+      });
+      setInputValue('');
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Cooldown timer to re-enable multiple inputs
+    // Cooldown timer: Short (200ms) to allow the NEXT person to scan quickly.
     setTimeout(() => {
       setIsProcessing(false);
-      // Force focus back after cooldown
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }, 1000);
+      // Force focus back immediately
+      inputRef.current?.focus();
+    }, 200);
+
+    // Update last scanned with current time
+    lastScannedRef.current = { regNo, time: Date.now() };
 
     setInputValue('');
     setTimedStatus({ msg: 'Checking records...', type: 'info' });

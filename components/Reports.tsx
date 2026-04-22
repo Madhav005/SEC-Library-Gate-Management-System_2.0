@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Entry, UserType } from '../types';
 
 interface ReportsProps {
@@ -24,6 +24,15 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
   const [selectedUserType, setSelectedUserType] = useState<'ALL' | UserType>('ALL');
   const [filterSearch, setFilterSearch] = useState('');
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 30;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [fromDate, toDate, selectedDept, selectedUserType, filterSearch]);
+
   // Reset filters
   const clearFilters = () => {
     setFromDate('');
@@ -48,8 +57,9 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
       const matchesDept = selectedDept === 'ALL' || e.department === selectedDept;
       const matchesType = selectedUserType === 'ALL' || e.userType === selectedUserType;
       const matchesSearch = filterSearch
-        ? e.regNo.toLowerCase().includes(filterSearch.toLowerCase()) ||
-        e.name.toLowerCase().includes(filterSearch.toLowerCase())
+        ? (e.regNo || '').toLowerCase().includes(filterSearch.toLowerCase()) ||
+        (e.name || '').toLowerCase().includes(filterSearch.toLowerCase()) ||
+        (e.department || '').toLowerCase().includes(filterSearch.toLowerCase())
         : true;
       return matchesDateRange && matchesDept && matchesSearch && matchesType;
     });
@@ -198,7 +208,7 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
           <div className="flex gap-2">
             <div className="flex-grow">
               <label className="block text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Search</label>
-              <input type="text" placeholder="Name/Reg No..." value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm font-semibold outline-none focus:border-[#1e3a8a] transition-all bg-white" />
+              <input type="text" placeholder="Name, ID, or Dept..." value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-2 text-sm font-semibold outline-none focus:border-[#1e3a8a] transition-all bg-white" />
             </div>
             <div className="flex flex-col justify-end">
               <button onClick={clearFilters} className="h-[42px] px-4 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-lg font-bold text-xs uppercase tracking-wider transition-colors" title="Clear All Filters">
@@ -280,7 +290,8 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredEntries.map(e => (
+                {/* Use paginatedEntries instead of filteredEntries */}
+                {filteredEntries.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map(e => (
                   <tr key={e.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-black text-[#1e3a8a] font-mono">{e.regNo}</td>
                     <td className="px-6 py-4 font-bold text-slate-700">{e.name}</td>
@@ -315,8 +326,37 @@ const Reports: React.FC<ReportsProps> = ({ entries }) => {
             </table>
           </div>
         </div>
+
+        {/* Pagination Controls */}
+        {filteredEntries.length > ITEMS_PER_PAGE && (
+          <div className="flex items-center justify-between mt-4 px-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredEntries.length)} of {filteredEntries.length} records
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-black uppercase text-slate-600 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+              >
+                Previous
+              </button>
+              <div className="flex items-center justify-center bg-[#1e3a8a] text-white font-black text-xs w-8 h-8 rounded-lg">
+                {currentPage}
+              </div>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredEntries.length / ITEMS_PER_PAGE), p + 1))}
+                disabled={currentPage === Math.ceil(filteredEntries.length / ITEMS_PER_PAGE)}
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-black uppercase text-slate-600 disabled:opacity-50 hover:bg-slate-50 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
+
   );
 };
 

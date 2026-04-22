@@ -9,10 +9,18 @@ interface ManualCheckoutProps {
 
 const ManualCheckout: React.FC<ManualCheckoutProps> = ({ entries, onRefresh }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // FIX 1: Filter using 'checkOutTime' (Backend name) instead of just checking for null
   // We check for !checkOutTime to handle both null and undefined
-  const activeEntries = entries.filter(e => !e.checkOutTime);
+  const activeEntries = entries
+    .filter(e => !e.checkOutTime)
+    .filter(e =>
+      !searchQuery ||
+      (e.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (e.regNo?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      (e.department?.toLowerCase() || '').includes(searchQuery.toLowerCase())
+    );
 
   // FIX 2: Helper to format the ISO string from Java (e.g., "2023-10-25T10:00:00")
   const formatTime = (isoString: string | undefined) => {
@@ -44,7 +52,7 @@ const ManualCheckout: React.FC<ManualCheckoutProps> = ({ entries, onRefresh }) =
 
   return (
     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-xl font-black text-[#1e3a8a] flex items-center gap-2">
             <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
@@ -52,15 +60,29 @@ const ManualCheckout: React.FC<ManualCheckoutProps> = ({ entries, onRefresh }) =
           </h2>
         </div>
 
-        {activeEntries.length > 0 && (
-          <button
-            onClick={handleCheckoutAll}
-            disabled={isProcessing}
-            className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-red-200 disabled:opacity-50"
-          >
-            Clear All Active Sessions
-          </button>
-        )}
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          {/* Search Bar */}
+          <div className="relative flex-grow md:w-64">
+            <input
+              type="text"
+              placeholder="Search active users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-[#1e3a8a] focus:ring-4 focus:ring-blue-50 transition-all shadow-sm"
+            />
+            <svg className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+
+          {entries.filter(e => !e.checkOutTime).length > 0 && (
+            <button
+              onClick={handleCheckoutAll}
+              disabled={isProcessing}
+              className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors border border-red-200 disabled:opacity-50 whitespace-nowrap"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-slate-100 shadow-sm">

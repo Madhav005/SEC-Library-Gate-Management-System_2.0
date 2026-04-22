@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { DBService } from '../services/dbService';
 import { UserProfile } from '../types';
 
-type SubTab = 'RECORDS' | 'MANUAL_ADD' | 'MANUAL_DELETE' | 'BULK_ADD' | 'BULK_DELETE';
+type SubTab = 'RECORDS' | 'MANUAL_ADD' | 'MANUAL_DELETE' | 'BULK_ADD' | 'BULK_DELETE' | 'LOG_DELETE';
 
 const DataManagement: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('RECORDS');
@@ -25,6 +25,7 @@ const DataManagement: React.FC = () => {
   }, [masterList]);
 
   const [totalStats, setTotalStats] = useState({ students: 0, staff: 0 });
+  const [logDeleteDates, setLogDeleteDates] = useState({ start: '', end: '' });
 
   const refreshList = async () => {
     setIsLoading(true);
@@ -36,7 +37,13 @@ const DataManagement: React.FC = () => {
       ]);
 
       setTotalStats({ students: students.length, staff: staff.length });
-      setMasterList(userTypeFilter === 'STUDENT' ? students : staff);
+
+      // FIX: In Manual Delete mode, combine both lists to allow searching global records
+      if (activeSubTab === 'MANUAL_DELETE') {
+        setMasterList([...students, ...staff]);
+      } else {
+        setMasterList(userTypeFilter === 'STUDENT' ? students : staff);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -215,6 +222,28 @@ const DataManagement: React.FC = () => {
     }
   };
 
+  // --- REFACTOR: LOG DELETE ---
+  const handleLogDelete = async () => {
+    if (!logDeleteDates.start || !logDeleteDates.end) {
+      setStatus({ type: 'error', msg: 'Please select both start and end dates.' });
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete logs from ${logDeleteDates.start} to ${logDeleteDates.end}?`)) return;
+
+    setIsLoading(true);
+    try {
+      const result = await DBService.deleteLogsByDateRange(logDeleteDates.start, logDeleteDates.end);
+      setStatus({ type: 'success', msg: `Successfully deleted ${result.deletedCount} log entries.` });
+      setLogDeleteDates({ start: '', end: '' });
+    } catch (err) {
+      console.error(err);
+      setStatus({ type: 'error', msg: 'Failed to delete logs.' });
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setStatus({ type: null, msg: '' }), 3000);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500 relative">
 
@@ -257,7 +286,7 @@ const DataManagement: React.FC = () => {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          {['RECORDS', 'MANUAL_ADD', 'MANUAL_DELETE', 'BULK_ADD', 'BULK_DELETE'].map(tab => (
+          {['RECORDS', 'MANUAL_ADD', 'MANUAL_DELETE', 'BULK_ADD', 'BULK_DELETE', 'LOG_DELETE'].map(tab => (
             <button
               key={tab}
               disabled={isLoading}
@@ -483,57 +512,175 @@ const DataManagement: React.FC = () => {
         )}
 
         {activeSubTab === 'BULK_ADD' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="text-sm font-black text-[#1e3a8a] uppercase tracking-widest">Batch Enrollment</h3>
-            <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-white hover:border-[#1e3a8a] transition-all group">
-              <svg className="w-12 h-12 text-slate-300 group-hover:text-[#1e3a8a] transition-colors mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-              <h3 className="font-black text-slate-700 uppercase tracking-tight mb-2">Upload Master Enrollment CSV</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] text-center max-w-xs mb-6">
-                CSV Headers: regNo, name, department <br />(Auto-sorted by ID prefix)
-              </p>
-              <input
-                ref={fileImportRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileImportRef.current?.click()}
-                className="bg-white border-2 border-[#1e3a8a] text-[#1e3a8a] px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-50 transition-all shadow-sm active:scale-95"
-              >
-                Choose Enrollment File
-              </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Upload Area */}
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-white hover:border-[#1e3a8a] transition-all group min-h-[300px]">
+                <svg className="w-12 h-12 text-slate-300 group-hover:text-[#1e3a8a] transition-colors mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <h3 className="font-black text-slate-700 uppercase tracking-tight mb-2">Upload Master CSV</h3>
+                <input
+                  ref={fileImportRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileImportRef.current?.click()}
+                  className="mt-4 bg-white border-2 border-[#1e3a8a] text-[#1e3a8a] px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-50 transition-all shadow-sm active:scale-95"
+                >
+                  Choose Information File
+                </button>
+              </div>
+
+              {/* Instructions Area */}
+              <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100 flex flex-col justify-center">
+                <div className="mb-4">
+                  <h4 className="font-black text-[#1e3a8a] text-sm uppercase tracking-wide mb-1 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px]">i</span>
+                    CSV Format Guide
+                  </h4>
+                  <p className="text-xs text-blue-900/70 font-medium">Ensure your file meets these requirements to prevent data errors.</p>
+                </div>
+
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-start gap-3 text-xs text-slate-600">
+                    <span className="font-bold text-[#1e3a8a] min-w-[60px]">File Type:</span>
+                    <span>.csv (Comma Separated Values)</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-xs text-slate-600">
+                    <span className="font-bold text-[#1e3a8a] min-w-[60px]">Columns:</span>
+                    <span>regNo, name, department</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-xs text-slate-600">
+                    <span className="font-bold text-[#1e3a8a] min-w-[60px]">Order:</span>
+                    <span>Exact column order required</span>
+                  </li>
+                </ul>
+
+                <div className="bg-white rounded-lg border border-blue-200/50 overflow-hidden">
+                  <div className="bg-blue-100/50 px-3 py-2 text-[10px] font-bold text-blue-800 border-b border-blue-200/50">
+                    Example Data Structure
+                  </div>
+                  <div className="p-3 font-mono text-[10px] text-slate-600 bg-slate-50/50">
+                    regNo,name,department<br />
+                    21212101,"John Doe",Computer Science<br />
+                    21212102,"Jane Smith",Electronics<br />
+                    S1234,"Dr. Alan",Mechanical
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
         {activeSubTab === 'BULK_DELETE' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <h3 className="text-sm font-black text-red-600 uppercase tracking-widest">Global Removal</h3>
-            <div className="border-2 border-dashed border-red-100 rounded-2xl p-10 flex flex-col items-center justify-center bg-red-50/30 hover:bg-white hover:border-red-500 transition-all group">
-              <svg className="w-12 h-12 text-red-200 group-hover:text-red-500 transition-colors mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              <h3 className="font-black text-slate-700 uppercase tracking-tight mb-2">Upload Cleanup List</h3>
-              <p className="text-[10px] text-red-500 font-bold uppercase tracking-[0.2em] text-center max-w-xs mb-6">
-                WARNING: Deletes from students_data & staff_data <br />Permanent Database Action
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Upload Area */}
+              <div className="border-2 border-dashed border-red-100 rounded-2xl p-10 flex flex-col items-center justify-center bg-red-50/30 hover:bg-white hover:border-red-500 transition-all group min-h-[300px]">
+                <svg className="w-12 h-12 text-red-200 group-hover:text-red-500 transition-colors mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <h3 className="font-black text-slate-700 uppercase tracking-tight mb-2">Upload Cleanup List</h3>
+                <input
+                  ref={fileDeleteRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleBulkDeleteUpload}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileDeleteRef.current?.click()}
+                  className="mt-4 bg-white border-2 border-red-500 text-red-500 px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-red-50 transition-all shadow-sm active:scale-95"
+                >
+                  Select Cleanup List
+                </button>
+              </div>
+
+              {/* Instructions Area */}
+              <div className="bg-red-50/50 rounded-2xl p-6 border border-red-100 flex flex-col justify-center">
+                <div className="mb-4">
+                  <h4 className="font-black text-red-700 text-sm uppercase tracking-wide mb-1 flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center text-[10px]">!</span>
+                    Deletion Utility
+                  </h4>
+                  <p className="text-xs text-red-900/70 font-medium">
+                    CAUTION: This action is irreversible. Records found in the list will be permanently removed.
+                  </p>
+                </div>
+
+                <ul className="space-y-3 mb-6">
+                  <li className="flex items-start gap-3 text-xs text-slate-600">
+                    <span className="font-bold text-red-700 min-w-[60px]">File Type:</span>
+                    <span>.csv (Comma Separated Values)</span>
+                  </li>
+                  <li className="flex items-start gap-3 text-xs text-slate-600">
+                    <span className="font-bold text-red-700 min-w-[60px]">Content:</span>
+                    <span>List of Registration Numbers</span>
+                  </li>
+                </ul>
+
+                <div className="bg-white rounded-lg border border-red-200/50 overflow-hidden">
+                  <div className="bg-red-100/50 px-3 py-2 text-[10px] font-bold text-red-800 border-b border-red-200/50">
+                    Example Data Structure
+                  </div>
+                  <div className="p-3 font-mono text-[10px] text-slate-600 bg-slate-50/50">
+                    regNo<br />
+                    21212101<br />
+                    21212102<br />
+                    S1234
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- LOG DELETE TAB --- */}
+        {activeSubTab === 'LOG_DELETE' && (
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <h3 className="text-sm font-black text-red-600 uppercase tracking-widest mb-4">
+              Delete Log Entries by Date
+            </h3>
+            <div className="max-w-md bg-red-50/50 p-6 rounded-2xl border border-red-100">
+              <p className="text-xs text-red-900/70 font-medium mb-6">
+                CAUTION: This will permanently delete log records for the selected date range.
               </p>
-              <input
-                ref={fileDeleteRef}
-                type="file"
-                accept=".csv"
-                onChange={handleBulkDeleteUpload}
-                className="hidden"
-              />
-              <button
-                onClick={() => fileDeleteRef.current?.click()}
-                className="bg-white border-2 border-red-500 text-red-500 px-8 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-red-50 transition-all shadow-sm active:scale-95"
-              >
-                Select Cleanup List
-              </button>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">Start Date</label>
+                  <input
+                    type="date"
+                    value={logDeleteDates.start}
+                    onChange={e => setLogDeleteDates(prev => ({ ...prev, start: e.target.value }))}
+                    className="w-full border-2 border-red-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-red-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 tracking-widest">End Date</label>
+                  <input
+                    type="date"
+                    value={logDeleteDates.end}
+                    onChange={e => setLogDeleteDates(prev => ({ ...prev, end: e.target.value }))}
+                    className="w-full border-2 border-red-100 rounded-lg p-3 text-sm font-bold text-slate-900 focus:border-red-500 outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleLogDelete}
+                  disabled={isLoading || !logDeleteDates.start || !logDeleteDates.end}
+                  className="w-full mt-4 bg-red-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-700 transition-all shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  Delete Logs
+                </button>
+              </div>
             </div>
           </div>
         )}

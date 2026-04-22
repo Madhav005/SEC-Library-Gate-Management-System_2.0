@@ -101,6 +101,21 @@ const UnknownEntries: React.FC<UnknownEntriesProps> = ({ entries, onRefresh }) =
                     <div className="bg-orange-50 text-orange-700 px-4 py-2 rounded-xl border border-orange-100 font-bold text-xs uppercase tracking-wide">
                         {uniqueUnknowns.length} Unregistered IDs
                     </div>
+                    {uniqueUnknowns.length > 0 && (
+                        <button
+                            onClick={async () => {
+                                if (window.confirm("WARNING: This will permanently delete ALL unknown entries. Are you sure?")) {
+                                    await DBService.deleteAllUnknownLogs();
+                                    onRefresh();
+                                }
+                            }}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-xl border border-red-200 font-bold text-xs uppercase tracking-wide transition-colors flex items-center gap-1"
+                            title="Delete ALL unknown entries"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Delete All
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -135,8 +150,23 @@ const UnknownEntries: React.FC<UnknownEntriesProps> = ({ entries, onRefresh }) =
                                         <div className="font-mono font-bold text-lg text-slate-700 group-hover:text-blue-700">{u.regNo}</div>
                                         <div className="text-[10px] uppercase font-bold text-slate-400">Last Seen: {new Date(u.lastSeen).toLocaleDateString()} {new Date(u.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
-                                    <div className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-bold">
-                                        {u.count} Entries
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-slate-100 text-slate-600 px-2 py-1 rounded text-[10px] font-bold">
+                                            {u.count} Entries
+                                        </div>
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (window.confirm(`Delete all logs for unknown ID: ${u.regNo}?`)) {
+                                                    await DBService.deleteUnknownLogs(u.regNo);
+                                                    onRefresh();
+                                                }
+                                            }}
+                                            className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
+                                            title="Delete all entries for this ID"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
                                     </div>
                                 </button>
                             ))}

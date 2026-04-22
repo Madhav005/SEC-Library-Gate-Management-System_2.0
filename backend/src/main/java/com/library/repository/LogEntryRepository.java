@@ -4,6 +4,7 @@ import com.library.entity.LogEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface LogEntryRepository extends JpaRepository<LogEntry, String> {
@@ -18,4 +19,16 @@ public interface LogEntryRepository extends JpaRepository<LogEntry, String> {
     void updateUnknownEntries(String regNo, String name, String department, String userType);
 
     List<LogEntry> findByNameIsNull();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM LogEntry l WHERE l.regNo = :regNo")
+    void deleteByRegNo(@org.springframework.data.repository.query.Param("regNo") String regNo);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM LogEntry l WHERE l.userType = 'UNKNOWN' OR l.name IS NULL")
+    void deleteAllUnknowns();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM LogEntry l WHERE l.checkInTime >= :fromDate AND l.checkInTime <= :toDate")
+    int deleteByDateRange(@org.springframework.data.repository.query.Param("fromDate") LocalDateTime fromDate, @org.springframework.data.repository.query.Param("toDate") LocalDateTime toDate);
 }

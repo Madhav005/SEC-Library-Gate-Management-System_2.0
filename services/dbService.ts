@@ -116,4 +116,16 @@ export class DBService {
   static async syncUnknownEntryLogs(): Promise<{ resolvedCount: number }> {
     return this.request('/sync-unknown', { method: 'POST' });
   }
+
+  static async deleteUnknownLogs(regNo: string): Promise<void> {
+    return this.request(`/log_entry/delete/${regNo}`, { method: 'DELETE' });
+  }
+
+  static async deleteAllUnknownLogs(): Promise<void> {
+    return this.request('/log_entry/delete-all-unknown', { method: 'DELETE' });
+  }
+
+  static async deleteLogsByDateRange(start: string, end: string): Promise<{ deletedCount: number }> {
+    return this.request(`/log_entry/delete-by-date?start=${start}&end=${end}`, { method: 'DELETE' });
+  }
 }

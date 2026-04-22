@@ -59,10 +59,34 @@ const App: React.FC = () => {
     .sort((a, b) => {
       const getTime = (entry: Entry) => entry.checkOutTime || entry.checkInTime || '';
       return getTime(b).localeCompare(getTime(a));
-    })
-    .slice(0, 50);
+    });
+  // .slice(0, 50); // REMOVED LIMIT: We now show true total and paginate
 
   const activeCount = entries.filter(e => !e.checkOutTime).length;
+
+  // --- PAGINATION & SEARCH LOGIC ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const [dashboardSearch, setDashboardSearch] = useState('');
+  const itemsPerPage = 30;
+
+  // Filter entries based on search
+  const filteredDashboardEntries = liveEntries.filter(e =>
+    !dashboardSearch ||
+    (e.name?.toLowerCase() || '').includes(dashboardSearch.toLowerCase()) ||
+    (e.regNo?.toLowerCase() || '').includes(dashboardSearch.toLowerCase()) ||
+    (e.department?.toLowerCase() || '').includes(dashboardSearch.toLowerCase())
+  );
+
+  // Reset page if date changes, new entries arrive, or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [today, activeTab, dashboardSearch]);
+
+  const totalPages = Math.ceil(filteredDashboardEntries.length / itemsPerPage);
+  const displayedEntries = filteredDashboardEntries.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   if (error) {
     return (
@@ -173,24 +197,25 @@ const App: React.FC = () => {
                 <div className="h-full flex flex-col p-6 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500">
 
                   {/* 1. Centered Logo Above Banner */}
-                  <div className="flex justify-center mb-2 shrink-0 px-2">
+                  {/* 1. Centered Logo Above Banner */}
+                  <div className="flex justify-center mb-1 shrink-0 px-2">
                     <img
                       src="https://saveetha.ac.in/wp-content/uploads/2024/03/sec-logo-01as.png"
                       alt="Saveetha Engineering College Logo"
-                      className="h-28 w-auto object-contain"
+                      className="h-16 md:h-20 w-auto object-contain"
                     />
                   </div>
 
                   {/* 2. Hero Banner (Compact) */}
-                  <div className="mb-4 rounded-xl bg-gradient-to-r from-[#113583] to-[#2563eb] px-8 py-5 text-white shadow-lg shrink-0 flex flex-col justify-center relative overflow-hidden">
+                  <div className="mb-3 rounded-xl bg-gradient-to-r from-[#113583] to-[#2563eb] px-6 py-3 text-white shadow-lg shrink-0 flex flex-col justify-center relative overflow-hidden">
 
                     {/* Glossy overlay effect */}
                     <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-white/10 to-transparent skew-x-12 transform origin-bottom-right translate-x-10"></div>
 
                     <div className="relative z-10 flex flex-col justify-center">
-                      <h3 className="text-xs font-bold text-[#fbbf24] uppercase tracking-widest mb-1">Welcome To</h3>
-                      <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold uppercase tracking-tight mb-1 leading-none">Saveetha Engineering College</h1>
-                      <p className="text-blue-50 font-medium text-sm tracking-wide opacity-90">Central Library Gate Entry Management System</p>
+                      <h3 className="text-[10px] md:text-xs font-bold text-[#fbbf24] uppercase tracking-widest mb-0.5">Welcome To</h3>
+                      <h1 className="text-xl md:text-2xl lg:text-3xl font-extrabold uppercase tracking-tight mb-0.5 leading-none">Saveetha Engineering College</h1>
+                      <p className="text-blue-50 font-medium text-xs tracking-wide opacity-90">Central Library Gate Entry Management System</p>
                     </div>
                   </div>
 
@@ -237,12 +262,24 @@ const App: React.FC = () => {
                     {/* --- RIGHT COLUMN (Activity Log) --- */}
                     <div className="xl:col-span-2 h-full min-h-0">
                       <div className="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full overflow-hidden">
-                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between shrink-0">
+                        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                           <div className="flex items-center gap-2">
                             <h3 className="font-bold text-slate-700 text-sm uppercase">Live Activity</h3>
                             <span className="bg-blue-100 text-[#1e3a8a] text-[10px] font-bold px-2 py-0.5 rounded">{today}</span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider ml-2">({filteredDashboardEntries.length} Records)</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{liveEntries.length} Records</span>
+
+                          {/* Search Input */}
+                          <div className="relative w-full sm:w-64">
+                            <input
+                              type="text"
+                              placeholder="Search today's logs..."
+                              value={dashboardSearch}
+                              onChange={(e) => setDashboardSearch(e.target.value)}
+                              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 outline-none focus:border-[#1e3a8a] focus:ring-4 focus:ring-blue-50 transition-all shadow-sm bg-white"
+                            />
+                            <svg className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                          </div>
                         </div>
 
                         <div className="overflow-y-auto flex-1 p-0 custom-scrollbar">
@@ -255,7 +292,7 @@ const App: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
-                              {liveEntries.map(e => (
+                              {displayedEntries.map(e => (
                                 <tr key={e.id} className="hover:bg-blue-50/30 transition-colors group">
                                   <td className="px-6 py-3">
                                     <div className="flex items-center gap-3">
@@ -281,16 +318,41 @@ const App: React.FC = () => {
                                   </td>
                                 </tr>
                               ))}
-                              {liveEntries.length === 0 && (
+                              {filteredDashboardEntries.length === 0 && (
                                 <tr>
                                   <td colSpan={3} className="py-20 text-center text-slate-400 italic">
-                                    No scans recorded for today ({today}).
+                                    {dashboardSearch ? 'No matching records found for today.' : `No scans recorded for today (${today}).`}
                                   </td>
                                 </tr>
                               )}
                             </tbody>
                           </table>
                         </div>
+
+                        {/* PAGINATION CONTROLS */}
+                        {totalPages > 1 && (
+                          <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              Page {currentPage} of {totalPages}
+                            </span>
+                            <div className="flex gap-2">
+                              <button
+                                disabled={currentPage === 1}
+                                onClick={() => setCurrentPage(p => p - 1)}
+                                className="px-3 py-1 bg-white border border-slate-200 rounded text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 hover:bg-slate-50"
+                              >
+                                Prev
+                              </button>
+                              <button
+                                disabled={currentPage === totalPages}
+                                onClick={() => setCurrentPage(p => p + 1)}
+                                className="px-3 py-1 bg-white border border-slate-200 rounded text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 hover:bg-slate-50"
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
